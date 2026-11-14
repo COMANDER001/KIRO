@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin · Composta</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:0;padding:16px;background:#f4f7f2}
+.cards{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}.card{background:#fff;padding:12px 18px;border-radius:10px}
+.card b{display:block;font-size:24px;color:#2f6b3a}
+table{border-collapse:collapse;width:100%;background:#fff}th,td{border:1px solid #ddd;padding:6px 8px;text-align:left;font-size:14px}th{background:#2f6b3a;color:#fff}
+input,select,button{font-size:15px;padding:6px 10px}
+</style></head><body>
+<h2>Registros de composta</h2>
+<div id="login"><input id="tk" type="password" placeholder="Clave de administrador"> <button onclick="entrar()">Entrar</button> <span id="err" style="color:#b00"></span></div>
+<div id="panel" hidden>
+ <label>Semana (lunes): <select id="sem" onchange="cargar()"></select></label>
+ <button onclick="descargar()">Descargar CSV</button>
+ <div class="cards"><div class="card">Participantes<b id="np"></b></div><div class="card">Kg a ingresar<b id="ki"></b></div><div class="card">Kg de desecho estimado<b id="kd"></b></div></div>
+ <table><thead><tr><th>Local</th><th>Nombre</th><th>Producto</th><th>Teléfono</th><th>Kg llevará</th><th>Kg desecho</th><th>Horarios de venta</th></tr></thead><tbody id="tb"></tbody></table>
+</div>
+<script>
+let token='';const $=i=>document.getElementById(i);
+const h=()=>({'x-admin-token':token});
+function entrar(){token=$('tk').value;cargar(true)}
+async function cargar(primera){
+  const s=$('sem').value;
+  const r=await fetch('/api/admin/registros'+(s?'?semana='+s:''),{headers:h()});
+  if(!r.ok){$('err').textContent='Clave incorrecta';return}
+  const j=await r.json();
+  $('login').hidden=true;$('panel').hidden=false;
+  const semanas=[...new Set([j.semana,...j.semanas])].sort().reverse();
+  $('sem').innerHTML=semanas.map(x=>`<option ${x===j.semana?'selected':''}>${x}</option>`).join('');
+  $('np').textContent=j.totales.participantes;$('ki').textContent=j.totales.kg_ingreso.toLocaleString('es-MX');$('kd').textContent=j.totales.kg_desecho.toLocaleString('es-MX');
+  const tb=$('tb');tb.innerHTML='';
+  for(const r of j.registros){const tr=tb.insertRow();
+    [r.local,r.nombre,r.giro,r.telefono||'',r.kg_ingreso,r.kg_desecho,r.horarios].forEach(v=>tr.insertCell().textContent=v)}
+}
+async function descargar(){
+  const r=await fetch('/api/admin/csv?semana='+$('sem').value,{headers:h()});
+  const a=document.createElement('a');a.href=URL.createObjectURL(await r.blob());a.download='registros-'+$('sem').value+'.csv';a.click();
+}
+</script></body></html>
